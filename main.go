@@ -6,7 +6,8 @@ import (
 	"net/url"
 	"os"
 	"strings"
-	//"github.com/faust-m/pokedexcli/internal/pokeapi"
+
+	"github.com/faust-m/pokedexcli/internal/pokeapi"
 )
 
 type cliCommand struct {
@@ -16,8 +17,8 @@ type cliCommand struct {
 }
 
 type config struct {
-	next     url.URL
-	previous url.URL
+	next     *url.URL
+	previous *url.URL
 }
 
 var cmds map[string]cliCommand
@@ -39,11 +40,20 @@ func init() {
 			description: "Displays the names of the next 20 location areas",
 			callback:    commandMap,
 		},
+		"mapb": {
+			name:        "mapb",
+			description: "Displays the names of the previous 20 location areas",
+			callback:    commandMapb,
+		},
 	}
 }
 
 func main() {
 	scanner := bufio.NewScanner(os.Stdin)
+	cfg := config{
+		next:     &url.URL{},
+		previous: &url.URL{},
+	}
 	for {
 		fmt.Print("Pokedex > ")
 		if scanner.Scan() {
@@ -53,12 +63,7 @@ func main() {
 					fmt.Println("Unknown command")
 					continue
 				}
-				switch value.name {
-				case "map":
-					value.callback(&config{})
-				default:
-					value.callback(&config{})
-				}
+				value.callback(&cfg)
 			}
 		}
 	}
@@ -94,5 +99,86 @@ Usage:
 }
 
 func commandMap(cfg *config) error {
+	var err error
+	if cfg.next == nil {
+		fmt.Println("You're on the last page!")
+		return nil
+	} else if cfg.next.String() == "" {
+		cfg.next, err = url.Parse(pokeapi.BaseURL + pokeapi.LocationAreaEP)
+		if err != nil {
+			return fmt.Errorf("error parsing URL in commandMap: %w", err)
+		}
+		q := url.Values{}
+		q.Add(pokeapi.OffsetKey, "0")
+		q.Add(pokeapi.LimitKey, "20")
+		cfg.next.RawQuery = q.Encode()
+	}
+
+	locationAreas, err := pokeapi.GetLocationAreas(cfg.next.String())
+	if err != nil {
+		return fmt.Errorf("error getting next location areas: %w", err)
+	}
+	err = updateConfig(cfg, locationAreas)
+	if err != nil {
+		return fmt.Errorf("error updating config: %w", err)
+	}
+
+	for _, result := range locationAreas.Results {
+		fmt.Println(result.Name)
+	}
+
+	return nil
+}
+
+func commandMapb(cfg *config) error {
+	var err error
+	if cfg.previous == nil {
+		fmt.Println("You're on the first page!")
+		return nil
+	} else if cfg.previous.String() == "" {
+		cfg.previous, err = url.Parse(pokeapi.BaseURL + pokeapi.LocationAreaEP)
+		if err != nil {
+			return fmt.Errorf("error parsing URL in commandMapb: %w", err)
+		}
+		q := url.Values{}
+		q.Add(pokeapi.OffsetKey, "0")
+		q.Add(pokeapi.LimitKey, "20")
+		cfg.next.RawQuery = q.Encode()
+	}
+
+	locationAreas, err := pokeapi.GetLocationAreas(cfg.previous.String())
+	if err != nil {
+		return fmt.Errorf("error getting next location areas: %w", err)
+	}
+	err = updateConfig(cfg, locationAreas)
+	if err != nil {
+		return fmt.Errorf("error updating config: %w", err)
+	}
+
+	for _, result := range locationAreas.Results {
+		fmt.Println(result.Name)
+	}
+
+	return nil
+}
+
+func updateConfig(cfg *config, locationAreas pokeapi.LocationArea) error {
+	var err error
+	if locationAreas.Previous != nil {
+		cfg.previous, err = url.Parse(*locationAreas.Previous)
+		if err != nil {
+			return fmt.Errorf("error parsing previous URL: %w", err)
+		}
+	} else {
+		cfg.previous = nil
+	}
+	if locationAreas.Next != nil {
+		cfg.next, err = url.Parse(*locationAreas.Next)
+		if err != nil {
+			return fmt.Errorf("error parsing next URL: %w", err)
+		}
+	} else {
+		cfg.next = nil
+	}
 	return nil
 }
