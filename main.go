@@ -57,6 +57,16 @@ func init() {
 			description: "Attempt to catch a Pokemon",
 			callback:    commandCatch,
 		},
+		"inspect": {
+			name:        "inspect",
+			description: "List attributes for a caught Pokemon",
+			callback:    commandInspect,
+		},
+		"pokedex": {
+			name:        "pokedex",
+			description: "List Pokemon names in your Pokedex",
+			callback:    commandPokedex,
+		},
 	}
 
 	pokedex = map[string]pokeapi.Pokemon{}
@@ -230,8 +240,41 @@ func commandCatch(cfg *config, args ...string) error {
 	if rand.Intn(pokemonData.BaseExperience) <= 40 {
 		pokedex[pokemonData.Name] = pokemonData
 		fmt.Printf("%s was caught!\n", pokemonData.Name)
+		fmt.Println("You may now inspect it with the inspect command.")
 	} else {
 		fmt.Printf("%s escaped!\n", pokemonData.Name)
+	}
+	return nil
+}
+
+func commandInspect(cfg *config, args ...string) error {
+	if len(args) == 0 {
+		return fmt.Errorf("no Pokemon specified to inspect")
+	}
+	data, ok := pokedex[args[0]]
+	if !ok {
+		fmt.Println("you have not caught that pokemon")
+		return nil
+	}
+	fmt.Printf("Name: %s\nHeight: %v\nWeight: %v\nStats:\n", data.Name, data.Height, data.Weight)
+	for _, stat := range data.Stats {
+		fmt.Printf(" -%s: %v\n", stat.Stat.Name, stat.BaseStat)
+	}
+	fmt.Println("Types:")
+	for _, t := range data.Types {
+		fmt.Printf(" - %s\n", t.Type.Name)
+	}
+	return nil
+}
+
+func commandPokedex(*config, ...string) error {
+	if len(pokedex) == 0 {
+		fmt.Println("you have no pokemon in your pokedex")
+	} else {
+		fmt.Println("Pokedex:")
+		for k := range pokedex {
+			fmt.Printf(" - %s\n", pokedex[k].Name)
+		}
 	}
 	return nil
 }
