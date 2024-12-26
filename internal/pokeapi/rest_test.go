@@ -1,6 +1,7 @@
 package pokeapi
 
 import (
+	"fmt"
 	"testing"
 )
 
@@ -27,6 +28,15 @@ func TestValidCacheResource(t *testing.T) {
 	GetLocationAreas(url)
 	if _, found := cache.Get(url); !found {
 		t.Errorf("request was not cached")
+		t.Fail()
+	}
+}
+
+func TestExploreInvalidArea(t *testing.T) {
+	url := fmt.Sprintf("%s%s/%s", BaseURL, LocationAreaEP, "invalid-area")
+	_, err := ExploreArea(url)
+	if err == nil {
+		t.Errorf("explore invalid-area did not err")
 		t.Fail()
 	}
 }
